@@ -11,6 +11,7 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Server {
     public class FractalServer : IProcessType {
         IPAddress Address;
         int Port;
+        public readonly RenderedFractal Fractal;
 
         public void Configure(ProcessConfig config) {
             Address = IPAddress.Parse(config.Address);
@@ -22,6 +23,11 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Server {
             server.AddWebSocketService<ConnectedClient>("/", () => new ConnectedClient(this));
             token.Register(server.Stop);
             server.Start();
+        }
+
+        public FractalServer() {
+            Fractal = new RenderedFractal();
+            Fractal.Clear(new FractalColor { R = 0, G = 0, B = 0 });
         }
     }
 }
