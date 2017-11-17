@@ -3,8 +3,12 @@ using WebSocketSharp;
 using WebSocketSharp.Server;
 
 namespace Com.GitHub.ZachDeibert.FractalRenderer.Server {
-    class ConnectedClient : WebSocketBehavior {
+    public class ConnectedClient : WebSocketBehavior {
         readonly FractalServer Server;
+
+        public new void Send(byte[] data) {
+            base.Send(data);
+        }
 
         protected override void OnOpen() {
 
@@ -13,7 +17,8 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Server {
         protected override void OnMessage(MessageEventArgs e) {
             switch (e.Data) {
                 case "display":
-                    Send(Server.Fractal.Export(0, 0, RenderedFractal.Width, RenderedFractal.Height));
+                    Server.Displays.Add(this);
+                    Send(Server.Fractal.ExportKeyFrame());
                     break;
             }
         }
