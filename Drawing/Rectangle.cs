@@ -8,12 +8,12 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Drawing {
         public int Bottom;
         public int Width {
             get {
-                return Right - Left;
+                return Right - Left + 1;
             }
         }
         public int Height {
             get {
-                return Bottom - Top;
+                return Bottom - Top + 1;
             }
         }
     }

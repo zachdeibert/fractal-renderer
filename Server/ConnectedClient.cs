@@ -15,20 +15,27 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Server {
         }
 
         protected override void OnMessage(MessageEventArgs e) {
-            switch (e.Data) {
-                case "display":
-                    Server.Displays.Add(this);
-                    Send(Server.Fractal.ExportKeyFrame());
-                    break;
+            try {
+                switch (e.Data) {
+                    case "keyframe":
+                        Send(Server.Fractal.ExportKeyFrame());
+                        break;
+                    case "frame":
+                        Send(Server.Fractal.CleanRegion());
+                        break;
+                }
+            } catch (Exception ex) {
+                Console.Error.WriteLine(ex);
+                throw;
             }
         }
 
         protected override void OnError(ErrorEventArgs e) {
-
+            Console.Error.WriteLine(e.Exception);
         }
 
         protected override void OnClose(CloseEventArgs e) {
-
+            
         }
 
         public ConnectedClient(FractalServer server) {

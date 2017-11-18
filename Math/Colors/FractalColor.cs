@@ -1,6 +1,7 @@
 using System;
+using System.Linq;
 
-namespace Com.GitHub.ZachDeibert.FractalRenderer.Server {
+namespace Com.GitHub.ZachDeibert.FractalRenderer.Math.Colors {
     public class FractalColor {
         int r;
         int g;

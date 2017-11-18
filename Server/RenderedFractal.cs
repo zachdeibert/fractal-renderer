@@ -1,20 +1,43 @@
 using System;
-using System.Linq;
 using Com.GitHub.ZachDeibert.FractalRenderer.Drawing;
+using Com.GitHub.ZachDeibert.FractalRenderer.Math.Colors;
 
 namespace Com.GitHub.ZachDeibert.FractalRenderer.Server {
     public class RenderedFractal {
         public const int Width = 1920;
         public const int Height = 1080;
         readonly byte[] Data;
-        public Rectangle DirtyRegion;
+        Rectangle DirtyRegion;
+        readonly object RegionLock;
+
+        public bool IsDirty {
+            get {
+                return DirtyRegion != null;
+            }
+        }
+
+        public void ForceClean() {
+            lock (RegionLock) {
+                DirtyRegion = null;
+            }
+        }
 
         byte[] Export(int x, int y, int width, int height) {
-            return BitConverter.GetBytes(x)
-                    .Concat(BitConverter.GetBytes(y))
-                    .Concat(BitConverter.GetBytes(width))
-                    .Concat(BitConverter.GetBytes(height))
-                    .Concat(Data).ToArray();
+            byte[] buffer = new byte[16 + width * height * 4];
+            BitConverter.GetBytes(x).CopyTo(buffer, 0);
+            BitConverter.GetBytes(y).CopyTo(buffer, 4);
+            BitConverter.GetBytes(width).CopyTo(buffer, 8);
+            BitConverter.GetBytes(height).CopyTo(buffer, 12);
+            for (int dx = 0; dx < width; ++dx) {
+                for (int dy = 0; dy < height; ++dy) {
+                    int oldOffset = (dx + x + Width * (dy + y)) * 4;
+                    int newOffset = (dx + width * dy) * 4 + 16;
+                    for (int i = 0; i < 4; ++i) {
+                        buffer[newOffset + i] = Data[oldOffset + i];
+                    }
+                }
+            }
+            return buffer;
         }
 
         public byte[] ExportKeyFrame() {
@@ -22,9 +45,15 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Server {
         }
 
         public byte[] CleanRegion() {
-            byte[] data = Export(DirtyRegion.Left, DirtyRegion.Top, DirtyRegion.Width, DirtyRegion.Height);
-            DirtyRegion = null;
-            return data;
+            lock (RegionLock) {
+                if (DirtyRegion == null) {
+                    return new byte[16];
+                } else {
+                    byte[] data = Export(DirtyRegion.Left, DirtyRegion.Top, DirtyRegion.Width, DirtyRegion.Height);
+                    DirtyRegion = null;
+                    return data;
+                }
+            }
         }
 
         void SetPixelLinear(int i, FractalColor color) {
@@ -38,39 +67,44 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Server {
             for (int i = 0; i < Data.Length; i += 4) {
                 SetPixelLinear(i, color);
             }
-            DirtyRegion = new Rectangle {
-                Left = 0,
-                Top = 0,
-                Right = Width,
-                Bottom = Height
-            };
+            lock (RegionLock) {
+                DirtyRegion = new Rectangle {
+                    Left = 0,
+                    Top = 0,
+                    Right = Width - 1,
+                    Bottom = Height - 1
+                };
+            }
         }
 
         public void SetPixel(int x, int y, FractalColor color) {
-            SetPixelLinear((x + Width * y) * 4, color);
-            if (DirtyRegion == null) {
-                DirtyRegion = new Rectangle {
-                    Left = x,
-                    Top = y,
-                    Right = x,
-                    Bottom = y
-                };
-            } else {
-                if (x < DirtyRegion.Left) {
-                    DirtyRegion.Left = x;
-                } else if (x > DirtyRegion.Right) {
-                    DirtyRegion.Right = x;
-                }
-                if (y < DirtyRegion.Top) {
-                    DirtyRegion.Top = y;
-                } else if (y > DirtyRegion.Bottom) {
-                    DirtyRegion.Bottom = y;
+            lock (RegionLock) {
+                SetPixelLinear((x + Width * y) * 4, color);
+                if (DirtyRegion == null) {
+                    DirtyRegion = new Rectangle {
+                        Left = x,
+                        Top = y,
+                        Right = x,
+                        Bottom = y
+                    };
+                } else {
+                    if (x < DirtyRegion.Left) {
+                        DirtyRegion.Left = x;
+                    } else if (x > DirtyRegion.Right) {
+                        DirtyRegion.Right = x;
+                    }
+                    if (y < DirtyRegion.Top) {
+                        DirtyRegion.Top = y;
+                    } else if (y > DirtyRegion.Bottom) {
+                        DirtyRegion.Bottom = y;
+                    }
                 }
             }
         }
 
         public RenderedFractal() {
             Data = new byte[Width * Height * 4];
+            RegionLock = new object();
         }
     }
 }
