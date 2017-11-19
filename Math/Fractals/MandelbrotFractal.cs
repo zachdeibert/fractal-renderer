@@ -2,7 +2,7 @@ using System;
 
 namespace Com.GitHub.ZachDeibert.FractalRenderer.Math.Fractals {
     public class MandelbrotFractal : IFractal {
-        public bool TryEscape(NumberBase c, int maxIterations, out int iterations) {
+        public bool TryEscape(NumberBase c, int maxIterations, out int iterations, out IConvertible magnitude) {
             int i = 0;
             NumberBase z = c - c;
             while (z.Magnitude().ToDouble(null) < 2.0 && i < maxIterations) {
@@ -10,7 +10,8 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Math.Fractals {
                 ++i;
             }
             iterations = i;
-            return z.Magnitude().ToDouble(null) >= 2.0;
+            magnitude = z.Magnitude();
+            return magnitude.ToDouble(null) >= 2.0;
         }
     }
 }

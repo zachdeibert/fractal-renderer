@@ -18,8 +18,9 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Math.Rendering {
             }
             NumberBase c = Transformer.Transform(coordinate);
             int iterations;
-            bool escaped = Fractal.TryEscape(c, MaxIterations, out iterations);
-            return Colorer.Color(escaped, iterations, Histogram);
+            IConvertible magnitude;
+            bool escaped = Fractal.TryEscape(c, MaxIterations, out iterations, out magnitude);
+            return Colorer.Color(escaped, iterations, magnitude, Histogram);
         }
 
         public RenderContext(int dimensions, IDomainTransformer transformer, IFractal fractal, IColorer colorer, int maxIterations) {
