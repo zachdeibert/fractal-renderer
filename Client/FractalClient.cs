@@ -71,7 +71,13 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Client {
         }
 
         void OnError(object sender, ErrorEventArgs e) {
-            Console.Error.WriteLine(e.Exception);
+            if (e.Exception == null) {
+                if (e.Message != null) {
+                    Console.Error.WriteLine(e.Message);
+                }
+            } else {
+                Console.Error.WriteLine(e.Exception);
+            }
         }
 
         void OnClose(object sender, CloseEventArgs e) {
