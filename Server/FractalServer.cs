@@ -19,25 +19,7 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Server {
         int Port;
         CancellationToken Token;
         public readonly RenderedFractal Fractal;
-
-        void DrawTest(Task t) {
-            try {
-                if (!Token.IsCancellationRequested) {
-                    Fractal.Clear(new FractalColor { R = 0, G = 0, B = 0 });
-                    IRenderer renderer = new Default2DRenderer();
-                    RenderContext ctx = new RenderContext(2, new DecimalImaginaryPlaneTransformer(), new MandelbrotFractal(), new BluePurpleColorer(), 100);
-                    for (int x = 0; x < RenderedFractal.Width; ++x) {
-                        for (int y = 0; y < RenderedFractal.Height; ++y) {
-                            Fractal.SetPixel(x, y, renderer.RenderPixel(x, y, RenderedFractal.Width, RenderedFractal.Height, ctx));
-                        }
-                    }
-                    Task.Delay(10000, Token).ContinueWith(DrawTest, Token);
-                }
-            } catch (Exception ex) {
-                Console.Error.WriteLine(ex);
-                throw;
-            }
-        }
+        public readonly DisplayPartitioner Partitioner;
 
         public void Configure(ProcessConfig config) {
             Address = IPAddress.Parse(config.Address);
@@ -50,12 +32,12 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Server {
             server.AddWebSocketService<ConnectedClient>("/", () => new ConnectedClient(this));
             Token.Register(server.Stop);
             server.Start();
-            Task.Delay(1000, Token).ContinueWith(DrawTest, Token);
         }
 
         public FractalServer() {
             Fractal = new RenderedFractal();
             Fractal.Clear(new FractalColor { R = 0, G = 0, B = 0 });
+            Partitioner = new DisplayPartitioner();
         }
     }
 }

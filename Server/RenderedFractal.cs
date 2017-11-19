@@ -1,5 +1,5 @@
 using System;
-using Com.GitHub.ZachDeibert.FractalRenderer.Drawing;
+using Com.GitHub.ZachDeibert.FractalRenderer.Model;
 using Com.GitHub.ZachDeibert.FractalRenderer.Math.Colors;
 
 namespace Com.GitHub.ZachDeibert.FractalRenderer.Server {
@@ -9,6 +9,7 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Server {
         readonly byte[] Data;
         Rectangle DirtyRegion;
         readonly object RegionLock;
+        public readonly FractalConfig Config;
 
         public bool IsDirty {
             get {
@@ -80,31 +81,39 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Server {
         public void SetPixel(int x, int y, FractalColor color) {
             lock (RegionLock) {
                 SetPixelLinear((x + Width * y) * 4, color);
-                if (DirtyRegion == null) {
-                    DirtyRegion = new Rectangle {
-                        Left = x,
-                        Top = y,
-                        Right = x,
-                        Bottom = y
-                    };
-                } else {
-                    if (x < DirtyRegion.Left) {
-                        DirtyRegion.Left = x;
-                    } else if (x > DirtyRegion.Right) {
-                        DirtyRegion.Right = x;
-                    }
-                    if (y < DirtyRegion.Top) {
-                        DirtyRegion.Top = y;
-                    } else if (y > DirtyRegion.Bottom) {
-                        DirtyRegion.Bottom = y;
+                DirtyRegion += new Rectangle {
+                    Left = x,
+                    Top = y,
+                    Right = x,
+                    Bottom = y
+                };
+            }
+        }
+
+        public void SetRegion(int x, int y, int width, int height, byte[] data, int off) {
+            lock (RegionLock) {
+                for (int dx = 0; dx < width; ++dx) {
+                    for (int dy = 0; dy < height; ++dy) {
+                        int oldOffset = (dx + width * dy) * 4 + off;
+                        int newOffset = (dx + x + Width * (dy + y)) * 4;
+                        for (int i = 0; i < 4; ++i) {
+                            Data[newOffset + i] = data[oldOffset + i];
+                        }
                     }
                 }
+                DirtyRegion += new Rectangle {
+                    Left = x,
+                    Top = y,
+                    Right = x + width - 1,
+                    Bottom = y + height - 1
+                };
             }
         }
 
         public RenderedFractal() {
             Data = new byte[Width * Height * 4];
             RegionLock = new object();
+            Config = new FractalConfig();
         }
     }
 }
