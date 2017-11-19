@@ -8,5 +8,10 @@
         "type": "renderer",
         "address": "127.0.0.1",
         "port": 8000
+    },
+    {
+        "type": "display",
+        "address": "127.0.0.1",
+        "port": 8000
     }
 ]
