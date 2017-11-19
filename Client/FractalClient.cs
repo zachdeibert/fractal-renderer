@@ -35,7 +35,9 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Client {
         }
 
         void OnOpen(object sender, EventArgs e) {
-            Socket.Send("config");
+            Socket.Send(new byte[] {
+                (byte) PacketIds.RequestConfig
+            });
         }
 
         void OnMessage(object sender, MessageEventArgs e) {
@@ -45,7 +47,9 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Client {
                     switch ((PacketIds) e.RawData[0]) {
                         case PacketIds.SerializedConfig:
                             Renderer = new FractalConfig(e.RawData, 1).CreateRenderer();
-                            Socket.Send("req");
+                            Socket.Send(new byte[] {
+                                (byte) PacketIds.RequestPartition
+                            });
                             break;
                         case PacketIds.PartitionAssignment:
                             partition = new Rectangle(e.RawData, 1);
@@ -58,7 +62,9 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Client {
                                     partition.Serialize().CopyTo(buffer, 1);
                                     t.Result.CopyTo(buffer, 17);
                                     Socket.Send(buffer);
-                                    Socket.Send("req");
+                                    Socket.Send(new byte[] {
+                                        (byte) PacketIds.RequestPartition
+                                    });
                                 }
                             });
                             break;
