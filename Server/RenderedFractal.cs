@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Com.GitHub.ZachDeibert.FractalRenderer.Model;
 using Com.GitHub.ZachDeibert.FractalRenderer.Math.Colors;
 
@@ -7,21 +9,10 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Server {
         public const int Width = 1920;
         public const int Height = 1080;
         readonly byte[] Data;
-        Rectangle DirtyRegion;
+        readonly Dictionary<int, Rectangle> DirtyRegion;
         readonly object RegionLock;
+        readonly Random FrameBufferIdRandom;
         public readonly FractalConfig Config;
-
-        public bool IsDirty {
-            get {
-                return DirtyRegion != null;
-            }
-        }
-
-        public void ForceClean() {
-            lock (RegionLock) {
-                DirtyRegion = null;
-            }
-        }
 
         byte[] Export(int x, int y, int width, int height) {
             byte[] buffer = new byte[16 + width * height * 4];
@@ -41,20 +32,35 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Server {
             return buffer;
         }
 
-        public byte[] ExportKeyFrame() {
+        public byte[] ExportKeyFrame(ref int fbid) {
+            lock (RegionLock) {
+                if (!DirtyRegion.ContainsKey(fbid)) {
+                    fbid = FrameBufferIdRandom.Next();
+                    DirtyRegion[fbid] = null;
+                }
+            }
             return Export(0, 0, Width, Height);
         }
 
-        public byte[] CleanRegion() {
+        public byte[] CleanRegion(ref int fbid) {
             lock (RegionLock) {
-                if (DirtyRegion == null) {
+                if (!DirtyRegion.ContainsKey(fbid)) {
+                    fbid = FrameBufferIdRandom.Next();
+                    DirtyRegion[fbid] = null;
+                }
+                Rectangle region = DirtyRegion[fbid];
+                if (region == null) {
                     return new byte[16];
                 } else {
-                    byte[] data = Export(DirtyRegion.Left, DirtyRegion.Top, DirtyRegion.Width, DirtyRegion.Height);
-                    DirtyRegion = null;
+                    byte[] data = Export(region.Left, region.Top, region.Width, region.Height);
+                    DirtyRegion[fbid] = null;
                     return data;
                 }
             }
+        }
+
+        public void DisconnectFrameBuffer(ref int fbid) {
+
         }
 
         void SetPixelLinear(int i, FractalColor color) {
@@ -69,24 +75,28 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Server {
                 SetPixelLinear(i, color);
             }
             lock (RegionLock) {
-                DirtyRegion = new Rectangle {
-                    Left = 0,
-                    Top = 0,
-                    Right = Width - 1,
-                    Bottom = Height - 1
-                };
+                foreach (int fbid in DirtyRegion.Keys.ToArray()) {
+                    DirtyRegion[fbid] = new Rectangle {
+                        Left = 0,
+                        Top = 0,
+                        Right = Width - 1,
+                        Bottom = Height - 1
+                    };
+                }
             }
         }
 
         public void SetPixel(int x, int y, FractalColor color) {
             lock (RegionLock) {
                 SetPixelLinear((x + Width * y) * 4, color);
-                DirtyRegion += new Rectangle {
-                    Left = x,
-                    Top = y,
-                    Right = x,
-                    Bottom = y
-                };
+                foreach (int fbid in DirtyRegion.Keys.ToArray()) {
+                    DirtyRegion[fbid] += new Rectangle {
+                        Left = x,
+                        Top = y,
+                        Right = x,
+                        Bottom = y
+                    };
+                }
             }
         }
 
@@ -101,18 +111,22 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Server {
                         }
                     }
                 }
-                DirtyRegion += new Rectangle {
-                    Left = x,
-                    Top = y,
-                    Right = x + width - 1,
-                    Bottom = y + height - 1
-                };
+                foreach (int fbid in DirtyRegion.Keys.ToArray()) {
+                    DirtyRegion[fbid] += new Rectangle {
+                        Left = x,
+                        Top = y,
+                        Right = x + width - 1,
+                        Bottom = y + height - 1
+                    };
+                }
             }
         }
 
         public RenderedFractal() {
             Data = new byte[Width * Height * 4];
+            DirtyRegion = new Dictionary<int, Rectangle>();
             RegionLock = new object();
+            FrameBufferIdRandom = new Random();
             Config = new FractalConfig();
         }
     }

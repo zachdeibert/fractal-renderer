@@ -6,13 +6,14 @@ using Com.GitHub.ZachDeibert.FractalRenderer.Model;
 namespace Com.GitHub.ZachDeibert.FractalRenderer.Server {
     public class ConnectedClient : WebSocketBehavior {
         readonly FractalServer Server;
+        int FrameBufferId;
 
         public new void Send(byte[] data) {
             base.Send(data);
         }
 
         protected override void OnOpen() {
-
+            FrameBufferId = -1;
         }
 
         protected override void OnMessage(MessageEventArgs e) {
@@ -22,10 +23,10 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Server {
                 if (e.IsText) {
                     switch (e.Data) {
                         case "keyframe":
-                            Send(Server.Fractal.ExportKeyFrame());
+                            Send(Server.Fractal.ExportKeyFrame(ref FrameBufferId));
                             break;
                         case "frame":
-                            Send(Server.Fractal.CleanRegion());
+                            Send(Server.Fractal.CleanRegion(ref FrameBufferId));
                             break;
                         case "req":
                             partition = Server.Partitioner.RequestPartition();
@@ -71,7 +72,7 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Server {
         }
 
         protected override void OnClose(CloseEventArgs e) {
-            
+            Server.Fractal.DisconnectFrameBuffer(ref FrameBufferId);
         }
 
         public ConnectedClient(FractalServer server) {
