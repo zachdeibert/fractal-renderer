@@ -1,6 +1,9 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Net;
+using System.Reflection;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using WebSocketSharp;
@@ -21,6 +24,27 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Server {
         public readonly RenderedFractal Fractal;
         public readonly DisplayPartitioner Partitioner;
 
+        void OnGet(object sender, HttpRequestEventArgs e) {
+            try {
+                if (e.Request.Url.PathAndQuery.EndsWith(".html")) {
+                    e.Response.ContentType = "text/html";
+                } else if (e.Request.Url.PathAndQuery.EndsWith(".js")) {
+                    e.Response.ContentType = "text/javascript";
+                } else if (e.Request.Url.PathAndQuery.EndsWith(".css")) {
+                    e.Response.ContentType = "text/css";
+                } else {
+                    return;
+                }
+                using (Stream stream = typeof(FractalServer).GetTypeInfo().Assembly.GetManifestResourceStream(string.Concat("FractalRenderer.", e.Request.Url.PathAndQuery.Substring(1)))) {
+                    using (StreamReader reader = new StreamReader(stream)) {
+                        e.Response.WriteContent(Encoding.UTF8.GetBytes(reader.ReadToEnd()));
+                    }
+                }
+            } catch (Exception ex) {
+                Console.Error.WriteLine(ex);
+            }
+        }
+
         public void Configure(ProcessConfig config) {
             Address = IPAddress.Parse(config.Address);
             Port = config.Port;
@@ -28,7 +52,8 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Server {
 
         public void Start(CancellationToken token) {
             Token = token;
-            WebSocketServer server = new WebSocketServer(Address, Port);
+            HttpServer server = new HttpServer(Address, Port);
+            server.OnGet += OnGet;
             server.AddWebSocketService<ConnectedClient>("/", () => new ConnectedClient(this));
             Token.Register(server.Stop);
             server.Start();

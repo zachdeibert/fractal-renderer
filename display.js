@@ -1,10 +1,9 @@
 window.addEventListener("load", function() {
     var canvas = document.getElementsByTagName("canvas")[0];
     var ctx = canvas.getContext("2d");
-    var url = prompt("Please enter server URL", "ws://localhost:8000");
 
     function init() {
-        var ws = new WebSocket(url);
+        var ws = new WebSocket("ws://" + location.host);
         ws.binaryType = "arraybuffer";
         var dead = false;
         ws.addEventListener("open", function() {

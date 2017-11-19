@@ -13,4 +13,9 @@
   <ItemGroup>
     <Compile Remove="lib\**" />
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="*.html" />
+    <EmbeddedResource Include="*.js" />
+    <EmbeddedResource Include="*.css" />
+  </ItemGroup>
 </Project>
