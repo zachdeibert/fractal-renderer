@@ -120,6 +120,26 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Math.Rendering {
             }
         }
 
+        public byte[] GetPixel(int x, int y) {
+            byte[] b = new byte[4];
+            Array.Copy(Buffer, (x + Width * y) * 4, b, 0, 4);
+            return b;
+        }
+
+        public void CopyFrom(FrameBuffer other) {
+            lock (Videos) {
+                other.Buffer.CopyTo(Buffer, 0);
+                foreach (int fbid in Videos.Keys.ToArray()) {
+                    Videos[fbid] = new DamagedArea {
+                        X = 0,
+                        Y = 0,
+                        Width = Width,
+                        Height = Height
+                    };
+                }
+            }
+        }
+
         public FrameBuffer(int width, int height) {
             Width = width;
             Height = height;

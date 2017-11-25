@@ -19,6 +19,20 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Server {
             FrameBufferId = -1;
         }
 
+        void OnPartitionsAdded() {
+            Partition part = Server.Impl.PartitionManager.Request();
+            if (part == null) {
+                Send(new byte[] {
+                    (byte) PacketIds.PartitionAssignment
+                });
+            } else {
+                Server.PartitionsAdded -= OnPartitionsAdded;
+                Send(new byte[] {
+                    (byte) PacketIds.PartitionAssignment
+                }.Concat(part.Serialize()).ToArray());
+            }
+        }
+
         protected override void OnMessage(MessageEventArgs e) {
             try {
                 if (e.IsBinary) {
@@ -29,6 +43,12 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Server {
                         case PacketIds.RenderedPartition:
                             data = e.RawData.Skip(1);
                             part = new Partition(Server.Impl.PartitionScalar, ref data);
+                            byte[] tmp = data.ToArray();
+                            for (int i = 0; i < tmp.Length; i += 4) {
+                                if (tmp[i] == 0 && tmp[i + 1] == 0 && tmp[i + 2] == 0) {
+                                    Console.WriteLine("Black partition!");
+                                }
+                            }
                             Server.Impl.Renderer.MergePartition(part, data);
                             Server.Impl.PartitionManager.PartitionRendered(part);
                             break;
@@ -57,6 +77,7 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Server {
                         case PacketIds.RequestPartition:
                             part = Server.Impl.PartitionManager.Request();
                             if (part == null) {
+                                Server.PartitionsAdded += OnPartitionsAdded;
                                 Send(new byte[] {
                                     (byte) PacketIds.PartitionAssignment
                                 });
@@ -70,6 +91,14 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Server {
                             Send(new byte[] {
                                 (byte) PacketIds.SerializedConfig
                             }.Concat(Server.Impl.Config.Serialize()).ToArray());
+                            break;
+                        case PacketIds.SwipeGesture:
+                            Server.Impl.Renderer.InputHandler.Swipe((sbyte) e.RawData[1], (sbyte) e.RawData[2]);
+                            Server.Impl.PartitionManager.Repartition();
+                            Server.OnPartitionsAdded();
+                            Send(new byte[] {
+                                (byte) PacketIds.InputProcessed
+                            });
                             break;
                     }
                 }

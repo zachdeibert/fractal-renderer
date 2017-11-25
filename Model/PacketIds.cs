@@ -8,6 +8,8 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Model {
         RenderKeyFrame,
         RenderFrame,
         RequestPartition,
-        RequestConfig
+        RequestConfig,
+        SwipeGesture,
+        InputProcessed
     }
 }

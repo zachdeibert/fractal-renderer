@@ -17,6 +17,11 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Server {
         CancellationToken Token;
         public readonly HashSet<int> VideoIds;
         public readonly FractalImpls Impl;
+        public event Action PartitionsAdded;
+
+        public void OnPartitionsAdded() {
+            PartitionsAdded?.Invoke();
+        }
 
         void OnGet(object sender, HttpRequestEventArgs e) {
             try {
