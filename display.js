@@ -12,13 +12,13 @@ window.addEventListener("load", function() {
             ws.send(keyframe);
         });
         ws.addEventListener("message", function(ev) {
-            var header = new Uint32Array(ev.data, 0, 4);
+            var header = new Uint32Array(ev.data.slice(1, 17));
             if (header[2] == 0 || header[3] == 0) {
                 setTimeout(function() {
                     ws.send(frame);
                 }, 1000 / 60);
             } else {
-                var image = new ImageData(new Uint8ClampedArray(ev.data, 16, header[2] * header[3] * 4), header[2], header[3]);
+                var image = new ImageData(new Uint8ClampedArray(ev.data, 17, header[2] * header[3] * 4), header[2], header[3]);
                 ctx.putImageData(image, header[0], header[1]);
                 ws.send(frame);
             }

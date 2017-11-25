@@ -1,9 +1,14 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using WebSocketSharp;
 using Com.GitHub.ZachDeibert.FractalRenderer.Main;
-using Com.GitHub.ZachDeibert.FractalRenderer.Math.Colors;
+using Com.GitHub.ZachDeibert.FractalRenderer.Math;
+using Com.GitHub.ZachDeibert.FractalRenderer.Math.Coloring;
+using Com.GitHub.ZachDeibert.FractalRenderer.Math.Coordinates;
+using Com.GitHub.ZachDeibert.FractalRenderer.Math.Fractals;
 using Com.GitHub.ZachDeibert.FractalRenderer.Math.Rendering;
 using Com.GitHub.ZachDeibert.FractalRenderer.Model;
 using Com.GitHub.ZachDeibert.FractalRenderer.Server;
@@ -15,24 +20,12 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Client {
         int Port;
         CancellationToken Token;
         WebSocket Socket;
-        RenderProxy Renderer;
-
-        byte[] RenderPartition(Rectangle partition) {
-            byte[] data = new byte[partition.Width * partition.Height * 4];
-            for (int dx = 0; dx < partition.Width; ++dx) {
-                for (int dy = 0; dy < partition.Height; ++dy) {
-                    int x = dx + partition.Left;
-                    int y = dy + partition.Top;
-                    FractalColor color = Renderer.RenderPixel(x, y, RenderedFractal.Width, RenderedFractal.Height);
-                    int i = (dx + dy * partition.Width) * 4;
-                    data[i] = (byte) color.R;
-                    data[i + 1] = (byte) color.G;
-                    data[i + 2] = (byte) color.B;
-                    data[i + 3] = 255;
-                }
-            }
-            return data;
-        }
+        IRenderer Renderer;
+        IFractal Fractal;
+        IColorer Colorer;
+        ICoordinateTransformer Transformer;
+        ScalarBase PartitionScalar;
+        int MaxIterations;
 
         void OnOpen(object sender, EventArgs e) {
             Socket.Send(new byte[] {
@@ -43,30 +36,41 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Client {
         void OnMessage(object sender, MessageEventArgs e) {
             try {
                 if (e.IsBinary) {
-                    Rectangle partition;
+                    FractalConfig config;
+                    Partition partition;
+                    IEnumerable<byte> data = e.RawData.Skip(1);
                     switch ((PacketIds) e.RawData[0]) {
                         case PacketIds.SerializedConfig:
-                            Renderer = new FractalConfig(e.RawData, 1).CreateRenderer();
+                            config = new FractalConfig(e.RawData, 1);
+                            Renderer = FractalConfig.Construct<IRenderer>(config.Renderer);
+                            Fractal = FractalConfig.Construct<IFractal>(config.Fractal);
+                            Colorer = FractalConfig.Construct<IColorer>(config.Colorer);
+                            Transformer = FractalConfig.Construct<ICoordinateTransformer>(config.Transformer);
+                            PartitionScalar = FractalConfig.Construct<ScalarBase>(config.PartitionScalar);
+                            MaxIterations = config.MaxIterations;
                             Socket.Send(new byte[] {
                                 (byte) PacketIds.RequestPartition
                             });
                             break;
                         case PacketIds.PartitionAssignment:
-                            partition = new Rectangle(e.RawData, 1);
-                            Task.Run(() => RenderPartition(partition), Token).ContinueWith(t => {
-                                if (t.IsFaulted) {
-                                    Console.Error.WriteLine(t.Exception);
-                                } else if (t.IsCompleted) {
-                                    byte[] buffer = new byte[17 + t.Result.Length];
-                                    buffer[0] = (byte) PacketIds.RenderedPartition;
-                                    partition.Serialize().CopyTo(buffer, 1);
-                                    t.Result.CopyTo(buffer, 17);
-                                    Socket.Send(buffer);
-                                    Socket.Send(new byte[] {
-                                        (byte) PacketIds.RequestPartition
-                                    });
-                                }
-                            });
+                            if (e.RawData.Length > 1) {
+                                partition = new Partition(PartitionScalar, ref data);
+                                Task.Run(() => Renderer.CalculatePartition(partition, Fractal, Colorer, Transformer, MaxIterations).ToArray(), Token).ContinueWith(t => {
+                                    if (t.IsFaulted) {
+                                        Console.Error.WriteLine(t.Exception);
+                                    } else if (t.IsCompleted) {
+                                        byte[] part = partition.Serialize().ToArray();
+                                        byte[] buffer = new byte[1 + part.Length + t.Result.Length];
+                                        buffer[0] = (byte) PacketIds.RenderedPartition;
+                                        part.CopyTo(buffer, 1);
+                                        t.Result.CopyTo(buffer, 1 + part.Length);
+                                        Socket.Send(buffer);
+                                        Socket.Send(new byte[] {
+                                            (byte) PacketIds.RequestPartition
+                                        });
+                                    }
+                                });
+                            }
                             break;
                     }
                 }

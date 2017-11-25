@@ -3,27 +3,20 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
-using Com.GitHub.ZachDeibert.FractalRenderer.Math.Colors;
-using Com.GitHub.ZachDeibert.FractalRenderer.Math.Coordinates;
-using Com.GitHub.ZachDeibert.FractalRenderer.Math.Fractals;
-using Com.GitHub.ZachDeibert.FractalRenderer.Math.Rendering;
 
 namespace Com.GitHub.ZachDeibert.FractalRenderer.Model {
     public class FractalConfig {
-        public Type Renderer     = typeof(Default2DRenderer);
-        public int Dimensions    = 2;
-        public Type Transformer  = typeof(DecimalImaginaryPlaneTransformer);
-        public Type Fractal      = typeof(MandelbrotFractal);
-        public Type Colorer      = typeof(BluePurpleColorer);
-        public int MaxIterations = 100;
+        public Type Colorer;
+        public Type Transformer;
+        public Type Fractal;
+        public Type Renderer;
+        public Type PartitionScalar;
+        public int MaxIterations;
+        public int ScreenWidth;
+        public int ScreenHeight;
 
-        private static T Construct<T>(Type t) {
-            ConstructorInfo ctor = t.GetConstructor(new Type[0]);
-            return (T) ctor.Invoke(new object[0]);
-        }
-
-        public RenderProxy CreateRenderer() {
-            return new RenderProxy(Construct<IRenderer>(Renderer), new RenderContext(Dimensions, Construct<IDomainTransformer>(Transformer), Construct<IFractal>(Fractal), Construct<IColorer>(Colorer), MaxIterations));
+        public static T Construct<T>(Type t) {
+            return (T) t.GetTypeInfo().GetConstructor(new Type[0]).Invoke(new object[0]);
         }
 
         private static IEnumerable<byte> SerializeType(Type type) {
@@ -47,23 +40,27 @@ namespace Com.GitHub.ZachDeibert.FractalRenderer.Model {
         }
 
         public byte[] Serialize() {
-            return SerializeType(Renderer)
-                  .Concat(SerializeInt(Dimensions))
+            return SerializeType(Colorer)
                   .Concat(SerializeType(Transformer))
                   .Concat(SerializeType(Fractal))
-                  .Concat(SerializeType(Colorer))
+                  .Concat(SerializeType(Renderer))
+                  .Concat(SerializeType(PartitionScalar))
                   .Concat(SerializeInt(MaxIterations))
+                  .Concat(SerializeInt(ScreenWidth))
+                  .Concat(SerializeInt(ScreenHeight))
                   .ToArray();
         }
 
         public FractalConfig(byte[] data, int off = 0) {
             IEnumerable<byte> stream = data.Skip(off);
-            Renderer = DeserializeType(ref stream);
-            Dimensions = DeserializeInt(ref stream);
+            Colorer = DeserializeType(ref stream);
             Transformer = DeserializeType(ref stream);
             Fractal = DeserializeType(ref stream);
-            Colorer = DeserializeType(ref stream);
+            Renderer = DeserializeType(ref stream);
+            PartitionScalar = DeserializeType(ref stream);
             MaxIterations = DeserializeInt(ref stream);
+            ScreenWidth = DeserializeInt(ref stream);
+            ScreenHeight = DeserializeInt(ref stream);
         }
 
         public FractalConfig() {
